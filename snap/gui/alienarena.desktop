@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Alien Arena
+Comment=A standalone 3D first person online deathmatch shooter
+Comment[es]=Un juego de acción en primera persona sobre red
+Comment[it]=Sparatutto online 3D in prima persona
+Comment[de]=Ein Internet- und netzwerkfähiger 3D Ego-Shooter
+Exec=alienarena
+Icon=${SNAP}/meta/gui/alienarena.png
+Terminal=false
+Categories=Game;ActionGame;Shooter;
+Keywords=aliens;fps;shooter;multiplayer;deathmatch;arena;
+StartupWMClass=alienarena

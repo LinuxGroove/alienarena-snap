@@ -1,0 +1,101 @@
+name: Snap
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+  # upstream.yml calls this to build and publish a new Alien Arena release.
+  workflow_call:
+    inputs:
+      tag:
+        description: The Alien Arena release tag to build, in place of the one in snap/snapcraft.yaml
+        type: string
+        default: ''
+      release:
+        description: The channels to publish to, comma-separated (empty publishes nothing)
+        type: string
+        default: ''
+
+# A new push to a pull request replaces the build still running for it. When
+# upstream.yml calls this, github.workflow is that workflow's name, so its
+# builds don't queue behind pushes to main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  snap:
+    name: Build the snap (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the release asked for
+        if: inputs.tag != ''
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "Not an Alien Arena release tag: $TAG"; exit 1; }
+          sed -i "s/^    source-tag: .*/    source-tag: $TAG/" snap/snapcraft.yaml
+          grep -n "source-tag:" snap/snapcraft.yaml
+      # The game data is about 1.5 GB, and the build holds a few copies of it
+      # (the clone, the build, the install, the snap), so make room first.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+      - uses: snapcore/action-build@v1
+        id: build
+      - name: Check the snap
+        run: |
+          command -v unsquashfs || sudo apt-get install -y squashfs-tools
+          snap="${{ steps.build.outputs.snap }}"
+          ls -l "$snap"
+          unsquashfs -ll "$snap" > contents.txt
+          for f in bin/alienarena-launch usr/bin/alienarena usr/bin/alienarena-ded \
+                   usr/share/alienarena/data1/pics/colormap.pcx usr/share/alienarena/arena/default.cfg \
+                   usr/lib/${{ matrix.arch == 'amd64' && 'x86_64' || 'aarch64' }}-linux-gnu/libopenal.so.1 \
+                   meta/gui/alienarena.desktop meta/gui/alienarena.png; do
+            grep -q "squashfs-root/$f\( \|$\)" contents.txt || { echo "missing: $f"; exit 1; }
+          done
+          unsquashfs -cat "$snap" meta/snap.yaml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alienarena-snap-${{ matrix.arch }}
+          path: ${{ steps.build.outputs.snap }}
+          retention-days: 5
+      # Publishing needs the snap name registered and the STORE_LOGIN secret.
+      - name: Publish to the edge channel
+        if: github.event_name == 'push' && vars.PUBLISH_SNAP == 'true'
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: edge
+      - name: Publish to the candidate channel
+        if: github.event_name == 'release' && vars.PUBLISH_SNAP == 'true'
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: candidate
+      - name: Publish to ${{ inputs.release }}
+        if: inputs.release != '' && vars.PUBLISH_SNAP == 'true'
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: ${{ inputs.release }}

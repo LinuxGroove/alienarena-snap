@@ -1,0 +1,110 @@
+name: alienarena
+title: Alien Arena
+adopt-info: alienarena
+base: core26
+summary: Fast, old school arena deathmatch with a retro alien theme.
+description: |
+  Alien Arena is a free, fast paced arena shooter: old school deathmatch with
+  modern features, in bright, arcade-like arenas with a retro science fiction
+  theme. Play online against people from all over the world, host your own
+  game, or practice offline against bots.
+
+  - Deathmatch, Capture the Flag, Team Tactical and more, with instagib,
+    rocket arena, low gravity, vampire and other modes
+  - Practice offline against bots in every mode
+  - Host a game from the menu, or run a dedicated server with
+    `alienarena.server`
+  - Map packs download on their own when a server needs them
+
+  This snap builds Alien Arena from its source at
+  https://github.com/alienarena/alienarena and isn't made by the Alien Arena
+  team. The game is played with a keyboard and mouse: the Linux version has
+  no controller support.
+icon: snap/gui/alienarena.png
+grade: stable
+confinement: strict
+compression: lzo
+# The engine is GPL 2 or later (with a BSD-licensed SHA-2). The game data may
+# be passed on freely, as a whole, for use with Alien Arena, but not in pieces
+# or for profit (docs/license.txt upstream, installed in
+# usr/share/doc/alienarena). snapd takes no LicenseRef-, so the data counts as
+# Proprietary here.
+license: GPL-2.0-or-later AND BSD-3-Clause AND Proprietary
+website: https://alienarena.org
+source-code: https://github.com/LinuxGroove/alienarena-snap
+issues: https://github.com/LinuxGroove/alienarena-snap/issues
+contact: https://github.com/LinuxGroove/alienarena-snap/issues
+
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  alienarena:
+    command: bin/alienarena-launch alienarena
+    extensions: [gnome]
+    plugs:
+      - audio-playback
+      - network
+      # Hosting a game from the menu, and LAN games.
+      - network-bind
+
+  # The dedicated server. It reads the same game data and keeps its own
+  # settings in the same place as the game; see README.md.
+  server:
+    command: bin/alienarena-launch alienarena-ded
+    plugs:
+      - network
+      - network-bind
+
+parts:
+  alienarena:
+    plugin: autotools
+    source: https://github.com/alienarena/alienarena.git
+    source-type: git
+    # Each release is a tag. The game data (data1, about 1.5 GB) is in the
+    # same repository, so one shallow clone brings everything.
+    source-tag: 7.72.4
+    source-depth: 1
+    autotools-configure-parameters:
+      - --prefix=/usr
+    build-packages:
+      - pkg-config
+      - libx11-dev
+      - libxxf86vm-dev
+      - libgl-dev
+      - libopenal-dev
+      - libogg-dev
+      - libvorbis-dev
+      - libcurl4-gnutls-dev
+      - libfreetype-dev
+      - libjpeg-dev
+      - zlib1g-dev
+    stage-packages:
+      # OpenAL is loaded at run time (dlopen), so nothing links to it; it plays
+      # through PulseAudio (or PipeWire's PulseAudio server).
+      - libopenal1
+      - libpulse0
+      - libcurl3t64-gnutls
+      - libvorbis0a
+      - libvorbisfile3
+      - libogg0
+      - libxxf86vm1
+      - libjpeg-turbo8
+      - libfreetype6
+    override-pull: |
+      craftctl default
+      craftctl set version="$(git describe --tags)"
+    override-build: |
+      craftctl default
+      install -D -m 644 docs/license.txt "$CRAFT_PART_INSTALL/usr/share/doc/alienarena/license.txt"
+      install -D -m 644 docs/sha2_license.txt "$CRAFT_PART_INSTALL/usr/share/doc/alienarena/sha2_license.txt"
+    prime:
+      # The game's own icon folder; the snap's icon is snap/gui/alienarena.png.
+      - -usr/share/icons/alienarena
+
+  launcher:
+    plugin: dump
+    source: snap/local
+    organize:
+      alienarena-launch: bin/alienarena-launch

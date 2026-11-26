@@ -1,0 +1,26 @@
+#!/bin/sh
+# Starts Alien Arena ($1: alienarena, or alienarena-ded for the dedicated
+# server) on the game data in the snap.
+#
+# The game looks for its data in the working folder first (where it finds
+# data1/pics/colormap.pcx) and only then in the folder built into it at
+# compile time, which isn't where snapd mounts the snap, so it starts in the
+# snap's data folder.
+#
+# Settings, downloaded map packs, demos and screenshots go in
+# $XDG_DATA_HOME/cor-games. The game makes that folder but not its parents,
+# so they're made here, in the snap's common folder: it isn't copied for every
+# revision, which matters once map packs have downloaded. The gnome
+# extension's launcher points XDG_DATA_HOME at the versioned folder, so it's
+# set again here, after it.
+set -e
+
+program="$1"
+shift
+
+data="$SNAP_USER_COMMON/.local/share"
+mkdir -p "$data"
+export XDG_DATA_HOME="$data"
+
+cd "$SNAP/usr/share/alienarena"
+exec "$SNAP/usr/bin/$program" "$@"
