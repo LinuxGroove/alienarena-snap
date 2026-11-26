@@ -15,7 +15,7 @@ on:
         type: string
         default: ''
       publish:
-        description: Publish it to candidate and edge, and move main to it if it's newer
+        description: Publish it to candidate and edge, and move main to it if it's newer (runs on main only)
         type: boolean
         default: true
 
@@ -37,9 +37,8 @@ jobs:
       - id: check
         env:
           FORCED: ${{ inputs.tag }}
-          SCHEDULED: ${{ github.event_name == 'schedule' }}
-          WANT_PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
-          CAN_PUBLISH: ${{ vars.PUBLISH_SNAP == 'true' }}
+          # Publish only from main: the daily run always does, a run by hand when asked.
+          PUBLISH: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish) }}
         run: |
           release='^[0-9]+(\.[0-9]+)+$'
           current=$(sed -n 's/^    source-tag: *//p' snap/snapcraft.yaml)
@@ -58,21 +57,9 @@ jobs:
           else
             tag="$latest"
           fi
-          publish=false
-          if [ "$WANT_PUBLISH" = true ]; then
-            if [ "$CAN_PUBLISH" = true ]; then
-              publish=true
-            elif [ "$SCHEDULED" = true ]; then
-              # Building every day with nowhere to publish would only use up runners.
-              echo "::notice::Alien Arena $tag is out, but PUBLISH_SNAP isn't set, so it isn't built."
-              exit 0
-            else
-              echo "::warning::PUBLISH_SNAP isn't set, so $tag is built but not published."
-            fi
-          fi
-          echo "Building $tag (publish: $publish)."
+          echo "Building $tag (publish: $PUBLISH)."
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ needs.check.outputs.tag }}
