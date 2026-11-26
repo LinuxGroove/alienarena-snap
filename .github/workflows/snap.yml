@@ -11,7 +11,7 @@ on:
   workflow_call:
     inputs:
       tag:
-        description: The Alien Arena release tag to build, in place of the one in snap/snapcraft.yaml
+        description: The tag to build (7.72.4 or 7.72.4-pad.1), in place of the one in snap/snapcraft.yaml
         type: string
         default: ''
       release:
@@ -45,7 +45,7 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
         run: |
-          [[ "$TAG" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "Not an Alien Arena release tag: $TAG"; exit 1; }
+          [[ "$TAG" =~ ^[0-9]+(\.[0-9]+)+(-pad\.[0-9]+)?$ ]] || { echo "Not an Alien Arena release or pad tag: $TAG"; exit 1; }
           sed -i "s/^    source-tag: .*/    source-tag: $TAG/" snap/snapcraft.yaml
           grep -n "source-tag:" snap/snapcraft.yaml
       # The game data is about 1.5 GB, and the build holds a few copies of it

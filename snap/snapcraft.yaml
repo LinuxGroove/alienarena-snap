@@ -16,10 +16,10 @@ description: |
     `alienarena.server`
   - Map packs download on their own when a server needs them
 
-  This snap builds Alien Arena from its source at
-  https://github.com/alienarena/alienarena and isn't made by the Alien Arena
-  team. The game is played with a keyboard and mouse: the Linux version has
-  no controller support.
+  This snap builds Alien Arena from its source, from a copy of
+  https://github.com/alienarena/alienarena that adds game controller support
+  on its way upstream, and isn't made by the Alien Arena team. For now the
+  game is played with a keyboard and mouse.
 icon: snap/gui/alienarena.png
 grade: stable
 confinement: strict
@@ -60,10 +60,14 @@ apps:
 parts:
   alienarena:
     plugin: autotools
-    source: https://github.com/alienarena/alienarena.git
+    # A copy of upstream that carries the game controller patches until
+    # upstream merges them. It has every upstream release tag (7.72.4) and,
+    # for each tested build of a release with the patches on top, a
+    # <release>-pad.N tag (7.72.4-pad.1); upstream.yml moves source-tag to the
+    # newest. The game data (data1, about 1.5 GB) is in the same repository,
+    # so one shallow clone brings everything.
+    source: https://github.com/kenvandine/alienarena.git
     source-type: git
-    # Each release is a tag. The game data (data1, about 1.5 GB) is in the
-    # same repository, so one shallow clone brings everything.
     source-tag: 7.72.4
     source-depth: 1
     autotools-configure-parameters:

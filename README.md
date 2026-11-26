@@ -1,6 +1,6 @@
 # Alien Arena snap
 
-A snap of [Alien Arena](https://alienarena.org), the free arena shooter: old school deathmatch with modern features, in bright, arcade-like arenas with a retro alien theme. It's a core26 snap that builds the game from its source at [alienarena/alienarena](https://github.com/alienarena/alienarena) (the tag in `snap/snapcraft.yaml`) and isn't made by the Alien Arena team.
+A snap of [Alien Arena](https://alienarena.org), the free arena shooter: old school deathmatch with modern features, in bright, arcade-like arenas with a retro alien theme. It's a core26 snap that builds the game from its source (the tag in `snap/snapcraft.yaml`) and isn't made by the Alien Arena team. The source is [kenvandine/alienarena](https://github.com/kenvandine/alienarena), a copy of [alienarena/alienarena](https://github.com/alienarena/alienarena) that carries game controller support until upstream merges it.
 
 ```sh
 sudo snap install alienarena          # once it's in the Snap Store
@@ -18,7 +18,7 @@ alienarena.server +map dm-dynamo      # a dedicated server, in a terminal
 ## Things to know
 
 - **X11 only.** The engine draws with GLX, so on a Wayland desktop it runs through Xwayland.
-- **No controller support.** The Linux engine reads no gamepads (`IN_JoyMove` is empty in `source/unix/rw_unix.c`), so the snap has no `joystick` plug. That's on purpose: on the gamepad shell, a snap with `joystick` connected gets no stick-as-mouse emulation, which is the only way a pad can drive this game.
+- **No controller support yet.** Upstream's Linux engine reads no gamepads (`IN_JoyMove` is empty in `source/unix/rw_unix.c`); the fork adds that (see [Controller support](#controller-support)). Until a build with it is tested, the snap has no `joystick` plug. That's on purpose: on the gamepad shell, a snap with `joystick` connected gets no stick-as-mouse emulation, which is the only way a pad can drive the game without native support.
 - **How it finds its data.** The game looks for `data1/` in the working folder before the folder built into it (which isn't where snapd mounts the snap), so `snap/local/alienarena-launch` starts it in `$SNAP/usr/share/alienarena`. It also makes the parents of `cor-games/`, which the game won't.
 - **Licenses.** The engine is GPL 2 or later. The game data may be passed on freely as a whole, for use with Alien Arena, but not in pieces or for profit (upstream's `docs/license.txt`, in the snap at `usr/share/doc/alienarena/`), so it isn't free software in the Debian sense. The icon is upstream's `unix_dist/alien-arena.png`. The packaging in this repository is MIT.
 
@@ -31,4 +31,15 @@ sudo snap install --dangerous alienarena_*.snap
 
 CI (`.github/workflows/snap.yml`) builds it for amd64 and arm64 on every push and pull request and keeps each snap as an artifact for 5 days. Every build from `main` is published: pushes go to `edge` and published GitHub releases to `candidate`. That needs the `alienarena` name registered and the `STORE_LOGIN` secret (store credentials from `snapcraft export-login`); without them the publish step fails.
 
-**New Alien Arena releases** are tags upstream, and the snap's version is the tag. Once a day `.github/workflows/upstream.yml` compares upstream's newest release tag with `source-tag` in `snap/snapcraft.yaml`. When upstream is ahead, it builds that release for both architectures, publishes it to `candidate` and `edge`, and commits the new `source-tag` to `main` (so `main` has to accept pushes from GitHub Actions). If the build fails, nothing is published, `main` stays as it was and the next day's run tries again. Run it by hand from Actions (Upstream release, Run workflow) to build any tag, with or without publishing. Changing `source-tag` yourself still works too. GitHub turns off scheduled workflows in a public repository after 60 days with no commits, and its own commits count.
+**New Alien Arena builds** are tags on the fork, and the snap's version is the tag. The fork copies upstream's release tags (`7.72.4`) and, each time its sync job has built and tested a release with the controller patches on top, tags that too (`7.72.4-pad.1`, then `7.72.4-pad.2` when the patches change). Once a day `.github/workflows/upstream.yml` compares the fork's newest build with `source-tag` in `snap/snapcraft.yaml`: the newest pad tag once there is one (so the snap never drops back to a build without the patches, even on the day upstream releases and the fork hasn't tagged it yet), and upstream's newest release before that. When the fork is ahead, it builds that tag for both architectures, publishes it to `candidate` and `edge`, and commits the new `source-tag` to `main` (so `main` has to accept pushes from GitHub Actions). If the build fails, nothing is published, `main` stays as it was and the next day's run tries again. Run it by hand from Actions (Upstream release, Run workflow) to build any tag, release or pad, with or without publishing. Changing `source-tag` yourself still works too. GitHub turns off scheduled workflows in a public repository after 60 days with no commits, and its own commits count.
+
+## Controller support
+
+Native gamepad support is being written as a stack of upstream pull requests on [kenvandine/alienarena](https://github.com/kenvandine/alienarena) (its `fork-tools` branch explains how the fork stays current). The fork's daily job replays the patches onto each upstream release, builds and smoke tests them, and only then tags `<release>-pad.N`, which this snap picks up on its own. When upstream merges everything, the fork keeps tagging upstream's releases as `-pad.N` builds, so the snap keeps following it.
+
+Building a pad tag doesn't turn controllers on in the snap by itself: without the `joystick` plug the game can't see any pads, so the gamepad shell's emulation carries on as before. Once a pad build has been tried with a real controller:
+
+1. Add `joystick` to the `alienarena` app's plugs.
+2. Add `libsdl2-dev` to the part's `build-packages` and `libsdl2-2.0-0` to its `stage-packages` (configure finds SDL2 on its own).
+3. Change the description's last sentence, and the controller notes in this README.
+4. Ask on the Snapcraft forum for `joystick` to connect on its own, if players shouldn't have to run `snap connect alienarena:joystick`.

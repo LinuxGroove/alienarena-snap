@@ -1,17 +1,22 @@
 name: Upstream release
 
-# Once a day, look for a new Alien Arena release (upstream tags each one, like
-# 7.72.4). When there is one, build it for amd64 and arm64 with snap.yml,
-# publish it to candidate (and edge, so edge is never older than candidate),
-# then move source-tag on main to it. A build that fails publishes nothing and
-# leaves main alone, so the next day's run tries again.
+# Once a day, look for a new Alien Arena build on the fork the snap builds
+# from, kenvandine/alienarena. It copies upstream's release tags (7.72.4) and
+# adds a <release>-pad.N tag (7.72.4-pad.1) for each tested build of a release
+# with the game controller patches on top. Once there's any pad tag, only pad
+# tags count, so the snap never drops back to a build without the patches;
+# until then, upstream's releases do. When there's a newer one, build it for
+# amd64 and arm64 with snap.yml, publish it to candidate (and edge, so edge is
+# never older than candidate), then move source-tag on main to it. A build that
+# fails publishes nothing and leaves main alone, so the next day's run tries
+# again.
 on:
   schedule:
     - cron: '17 6 * * *'
   workflow_dispatch:
     inputs:
       tag:
-        description: Build this release tag, new or not (empty looks for a new one)
+        description: Build this tag (7.72.4 or 7.72.4-pad.1), new or not (empty looks for a new one)
         type: string
         default: ''
       publish:
@@ -41,18 +46,20 @@ jobs:
           PUBLISH: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish) }}
         run: |
           release='^[0-9]+(\.[0-9]+)+$'
+          pad='^[0-9]+(\.[0-9]+)+-pad\.[0-9]+$'
           current=$(sed -n 's/^    source-tag: *//p' snap/snapcraft.yaml)
-          latest=$(git ls-remote --tags --refs https://github.com/alienarena/alienarena.git \
-                   | sed -n 's|.*refs/tags/||p' | grep -E "$release" | sort -V | tail -n 1)
-          echo "This repository builds $current; upstream's newest release is ${latest:-unknown}."
+          tags=$(git ls-remote --tags --refs https://github.com/kenvandine/alienarena.git | sed -n 's|.*refs/tags/||p')
+          latest=$(grep -E "$pad" <<<"$tags" | sort -V | tail -n 1 || true)
+          [ -n "$latest" ] || latest=$(grep -E "$release" <<<"$tags" | sort -V | tail -n 1 || true)
+          echo "This repository builds $current; the fork's newest build is ${latest:-unknown}."
           if [ -n "$FORCED" ]; then
-            [[ "$FORCED" =~ $release ]] || { echo "::error::Not an Alien Arena release tag: $FORCED"; exit 1; }
+            [[ "$FORCED" =~ $release || "$FORCED" =~ $pad ]] || { echo "::error::Not an Alien Arena release or pad tag: $FORCED"; exit 1; }
             tag="$FORCED"
           elif [ -z "$latest" ]; then
-            echo "::error::Couldn't read upstream's release tags."
+            echo "::error::Couldn't read the fork's tags."
             exit 1
           elif [ "$(printf '%s\n' "$current" "$latest" | sort -V | tail -n 1)" = "$current" ]; then
-            echo "::notice::$current is upstream's newest release, so there's nothing to do."
+            echo "::notice::$current is the newest build, so there's nothing to do."
             exit 0
           else
             tag="$latest"
