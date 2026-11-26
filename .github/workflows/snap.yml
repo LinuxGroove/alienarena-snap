@@ -65,9 +65,15 @@ jobs:
           for f in bin/alienarena-launch usr/bin/alienarena usr/bin/alienarena-ded \
                    usr/share/alienarena/data1/pics/colormap.pcx usr/share/alienarena/arena/default.cfg \
                    usr/lib/${{ matrix.arch == 'amd64' && 'x86_64' || 'aarch64' }}-linux-gnu/libopenal.so.1 \
+                   usr/lib/${{ matrix.arch == 'amd64' && 'x86_64' || 'aarch64' }}-linux-gnu/libSDL2-2.0.so.0 \
                    meta/gui/alienarena.desktop meta/gui/alienarena.png; do
             grep -q "squashfs-root/$f\( \|$\)" contents.txt || { echo "missing: $f"; exit 1; }
           done
+          # A pad build without SDL2 would quietly have no controller support.
+          if grep -q '^    source-tag: .*-pad\.' snap/snapcraft.yaml; then
+            unsquashfs -q -d game "$snap" usr/bin/alienarena
+            readelf -d game/usr/bin/alienarena | grep -q 'libSDL2-2\.0\.so\.0' || { echo "alienarena isn't built with SDL2, so it has no controller support"; exit 1; }
+          fi
           unsquashfs -cat "$snap" meta/snap.yaml
       - uses: actions/upload-artifact@v4
         with:

@@ -6,19 +6,20 @@ A snap of [Alien Arena](https://alienarena.org), the free arena shooter: old sch
 sudo snap install alienarena          # once it's in the Snap Store
 alienarena                            # the game
 alienarena.server +map dm-dynamo      # a dedicated server, in a terminal
+sudo snap connect alienarena:joystick # to play with a game controller
 ```
 
 ## What's in it
 
 - **The game and its data.** Alien Arena keeps its game data (`data1/`, about 1.5 GB) in the same repository as the engine, so one shallow clone of the release tag brings both, and `make install` puts the data in `usr/share/alienarena/`. The snap is about 900 MB.
 - **Two apps.** `alienarena` (on the desktop as Alien Arena) and `alienarena.server`, the dedicated server.
-- **Interfaces.** The `gnome` extension (desktop, X11, Wayland, OpenGL and the GPU drivers from `mesa-2604`), plus `audio-playback`, `network` and `network-bind` (hosting a game, LAN games, the dedicated server). All of them connect on their own.
+- **Interfaces.** The `gnome` extension (desktop, X11, Wayland, OpenGL and the GPU drivers from `mesa-2604`), plus `audio-playback`, `network` and `network-bind` (hosting a game, LAN games, the dedicated server), which connect on their own, and `joystick` (game controllers), which doesn't yet.
 - **Where things go.** Settings, downloaded map packs, demos and screenshots are in `~/snap/alienarena/common/.local/share/cor-games/`, which isn't copied for every revision.
 
 ## Things to know
 
 - **X11 only.** The engine draws with GLX, so on a Wayland desktop it runs through Xwayland.
-- **No controller support yet.** Upstream's Linux engine reads no gamepads (`IN_JoyMove` is empty in `source/unix/rw_unix.c`); the fork adds that (see [Controller support](#controller-support)). Until a build with it is tested, the snap has no `joystick` plug. That's on purpose: on the gamepad shell, a snap with `joystick` connected gets no stick-as-mouse emulation, which is the only way a pad can drive the game without native support.
+- **Controllers need `joystick` connected.** Upstream's Linux engine reads no gamepads (`IN_JoyMove` is empty in `source/unix/rw_unix.c`); the fork adds that through SDL2 (see [Controller support](#controller-support)), and the snap builds it in. Without the `joystick` plug connected the game sees no pads, and on the gamepad shell the stick-as-mouse emulation carries on as before; once it's connected, the shell leaves the pad to the game. It doesn't connect on its own until the Snap Store grants that.
 - **How it finds its data.** The game looks for `data1/` in the working folder before the folder built into it (which isn't where snapd mounts the snap), so `snap/local/alienarena-launch` starts it in `$SNAP/usr/share/alienarena`. It also makes the parents of `cor-games/`, which the game won't.
 - **Licenses.** The engine is GPL 2 or later. The game data may be passed on freely as a whole, for use with Alien Arena, but not in pieces or for profit (upstream's `docs/license.txt`, in the snap at `usr/share/doc/alienarena/`), so it isn't free software in the Debian sense. The icon is upstream's `unix_dist/alien-arena.png`. The packaging in this repository is MIT.
 
@@ -37,9 +38,4 @@ CI (`.github/workflows/snap.yml`) builds it for amd64 and arm64 on every push an
 
 Native gamepad support is being written as a stack of upstream pull requests on [kenvandine/alienarena](https://github.com/kenvandine/alienarena) (its `fork-tools` branch explains how the fork stays current). The fork's daily job replays the patches onto each upstream release, builds and smoke tests them, and only then tags `<release>-pad.N`, which this snap picks up on its own. When upstream merges everything, the fork keeps tagging upstream's releases as `-pad.N` builds, so the snap keeps following it.
 
-Building a pad tag doesn't turn controllers on in the snap by itself: without the `joystick` plug the game can't see any pads, so the gamepad shell's emulation carries on as before. Once a pad build has been tried with a real controller:
-
-1. Add `joystick` to the `alienarena` app's plugs.
-2. Add `libsdl2-dev` to the part's `build-packages` and `libsdl2-2.0-0` to its `stage-packages` (configure finds SDL2 on its own).
-3. Change the description's last sentence, and the controller notes in this README.
-4. Ask on the Snapcraft forum for `joystick` to connect on its own, if players shouldn't have to run `snap connect alienarena:joystick`.
+The snap builds the pad tags with SDL2 (`libsdl2-dev` in the part's `build-packages`, `libsdl2-2.0-0` in its `stage-packages`; configure finds it on its own), and CI checks that a pad build's `alienarena` links to SDL2. The `alienarena` app has the `joystick` plug, which players connect with `sudo snap connect alienarena:joystick`. Once a pad build has been tried with real controllers, ask on the Snapcraft forum for `joystick` to connect on its own, so players don't have to.
