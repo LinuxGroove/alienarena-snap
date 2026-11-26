@@ -1,7 +1,7 @@
 name: alienarena
 title: Alien Arena
 adopt-info: alienarena
-base: core24
+base: core26
 summary: Fast, old school arena deathmatch with a retro alien theme.
 description: |
   Alien Arena is a free, fast paced arena shooter: old school deathmatch with
@@ -24,10 +24,12 @@ icon: snap/gui/alienarena.png
 grade: stable
 confinement: strict
 compression: lzo
-# The engine is GPL 2 or later (with a BSD-licensed SHA-2); the game data may
-# be passed on freely, as a whole, for use with Alien Arena (docs/license.txt
-# upstream, installed in usr/share/doc/alienarena).
-license: GPL-2.0-or-later AND BSD-3-Clause AND LicenseRef-AlienArena-data
+# The engine is GPL 2 or later (with a BSD-licensed SHA-2). The game data may
+# be passed on freely, as a whole, for use with Alien Arena, but not in pieces
+# or for profit (docs/license.txt upstream, installed in
+# usr/share/doc/alienarena). snapd takes no LicenseRef-, so the data counts as
+# Proprietary here.
+license: GPL-2.0-or-later AND BSD-3-Clause AND Proprietary
 website: https://alienarena.org
 source-code: https://github.com/LinuxGroove/alienarena-snap
 issues: https://github.com/LinuxGroove/alienarena-snap/issues

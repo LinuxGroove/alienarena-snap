@@ -1,6 +1,6 @@
 # Alien Arena snap
 
-A snap of [Alien Arena](https://alienarena.org), the free arena shooter: old school deathmatch with modern features, in bright, arcade-like arenas with a retro alien theme. It builds the game from its source at [alienarena/alienarena](https://github.com/alienarena/alienarena) (the tag in `snap/snapcraft.yaml`) and isn't made by the Alien Arena team.
+A snap of [Alien Arena](https://alienarena.org), the free arena shooter: old school deathmatch with modern features, in bright, arcade-like arenas with a retro alien theme. It's a core26 snap that builds the game from its source at [alienarena/alienarena](https://github.com/alienarena/alienarena) (the tag in `snap/snapcraft.yaml`) and isn't made by the Alien Arena team.
 
 ```sh
 sudo snap install alienarena          # once it's in the Snap Store
@@ -12,7 +12,7 @@ alienarena.server +map dm-dynamo      # a dedicated server, in a terminal
 
 - **The game and its data.** Alien Arena keeps its game data (`data1/`, about 1.5 GB) in the same repository as the engine, so one shallow clone of the release tag brings both, and `make install` puts the data in `usr/share/alienarena/`. The snap is about 900 MB.
 - **Two apps.** `alienarena` (on the desktop as Alien Arena) and `alienarena.server`, the dedicated server.
-- **Interfaces.** The `gnome` extension (desktop, X11, Wayland, OpenGL and the GPU drivers from `mesa-2404`), plus `audio-playback`, `network` and `network-bind` (hosting a game, LAN games, the dedicated server). All of them connect on their own.
+- **Interfaces.** The `gnome` extension (desktop, X11, Wayland, OpenGL and the GPU drivers from `mesa-2604`), plus `audio-playback`, `network` and `network-bind` (hosting a game, LAN games, the dedicated server). All of them connect on their own.
 - **Where things go.** Settings, downloaded map packs, demos and screenshots are in `~/snap/alienarena/common/.local/share/cor-games/`, which isn't copied for every revision.
 
 ## Things to know

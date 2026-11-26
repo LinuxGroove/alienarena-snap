@@ -8,6 +8,11 @@ on:
     types: [published]
   workflow_dispatch:
 
+# A new push to a pull request replaces the build still running for it.
+concurrency:
+  group: snap-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   snap:
     name: Build the snap (${{ matrix.arch }})
