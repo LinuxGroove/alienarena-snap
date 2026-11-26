@@ -16,10 +16,10 @@ description: |
     `alienarena.server`
   - Map packs download on their own when a server needs them
 
-  This snap builds Alien Arena from its source at
-  https://github.com/alienarena/alienarena and isn't made by the Alien Arena
-  team. The game is played with a keyboard and mouse: the Linux version has
-  no controller support.
+  This snap builds Alien Arena from its source, from a copy of
+  https://github.com/alienarena/alienarena that adds game controller support
+  on its way upstream, and isn't made by the Alien Arena team. To play with a
+  game controller, connect it with `sudo snap connect alienarena:joystick`.
 icon: snap/gui/alienarena.png
 grade: stable
 confinement: strict
@@ -48,6 +48,8 @@ apps:
       - network
       # Hosting a game from the menu, and LAN games.
       - network-bind
+      # Game controllers, through SDL2. It doesn't connect on its own yet.
+      - joystick
 
   # The dedicated server. It reads the same game data and keeps its own
   # settings in the same place as the game; see README.md.
@@ -60,11 +62,15 @@ apps:
 parts:
   alienarena:
     plugin: autotools
-    source: https://github.com/alienarena/alienarena.git
+    # A copy of upstream that carries the game controller patches until
+    # upstream merges them. It has every upstream release tag (7.72.4) and,
+    # for each tested build of a release with the patches on top, a
+    # <release>-pad.N tag (7.72.4-pad.1); upstream.yml moves source-tag to the
+    # newest. The game data (data1, about 1.5 GB) is in the same repository,
+    # so one shallow clone brings everything.
+    source: https://github.com/kenvandine/alienarena.git
     source-type: git
-    # Each release is a tag. The game data (data1, about 1.5 GB) is in the
-    # same repository, so one shallow clone brings everything.
-    source-tag: 7.72.4
+    source-tag: 7.72.4-pad.1
     source-depth: 1
     autotools-configure-parameters:
       - --prefix=/usr
@@ -80,6 +86,8 @@ parts:
       - libfreetype-dev
       - libjpeg-dev
       - zlib1g-dev
+      # Game controllers; configure turns them on when it finds SDL2.
+      - libsdl2-dev
     stage-packages:
       # OpenAL is loaded at run time (dlopen), so nothing links to it; it plays
       # through PulseAudio (or PipeWire's PulseAudio server).
@@ -92,6 +100,7 @@ parts:
       - libxxf86vm1
       - libjpeg-turbo8
       - libfreetype6
+      - libsdl2-2.0-0
     override-pull: |
       craftctl default
       craftctl set version="$(git describe --tags)"
