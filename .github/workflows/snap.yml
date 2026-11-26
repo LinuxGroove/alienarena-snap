@@ -74,9 +74,9 @@ jobs:
           name: alienarena-snap-${{ matrix.arch }}
           path: ${{ steps.build.outputs.snap }}
           retention-days: 5
-      # Publishing needs the snap name registered and the STORE_LOGIN secret.
+      # Builds from main publish on their own (the store needs the STORE_LOGIN secret).
       - name: Publish to the edge channel
-        if: github.event_name == 'push' && vars.PUBLISH_SNAP == 'true'
+        if: github.event_name == 'push'
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}
@@ -84,7 +84,7 @@ jobs:
           snap: ${{ steps.build.outputs.snap }}
           release: edge
       - name: Publish to the candidate channel
-        if: github.event_name == 'release' && vars.PUBLISH_SNAP == 'true'
+        if: github.event_name == 'release'
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}
@@ -92,7 +92,7 @@ jobs:
           snap: ${{ steps.build.outputs.snap }}
           release: candidate
       - name: Publish to ${{ inputs.release }}
-        if: inputs.release != '' && vars.PUBLISH_SNAP == 'true'
+        if: inputs.release != ''
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}
