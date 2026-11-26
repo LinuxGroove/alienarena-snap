@@ -1,0 +1,112 @@
+name: Upstream release
+
+# Once a day, look for a new Alien Arena release (upstream tags each one, like
+# 7.72.4). When there is one, build it for amd64 and arm64 with snap.yml,
+# publish it to candidate (and edge, so edge is never older than candidate),
+# then move source-tag on main to it. A build that fails publishes nothing and
+# leaves main alone, so the next day's run tries again.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Build this release tag, new or not (empty looks for a new one)
+        type: string
+        default: ''
+      publish:
+        description: Publish it to candidate and edge, and move main to it if it's newer
+        type: boolean
+        default: true
+
+concurrency:
+  group: upstream-release
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Look for a new release
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      publish: ${{ steps.check.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        env:
+          FORCED: ${{ inputs.tag }}
+          SCHEDULED: ${{ github.event_name == 'schedule' }}
+          WANT_PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+          CAN_PUBLISH: ${{ vars.PUBLISH_SNAP == 'true' }}
+        run: |
+          release='^[0-9]+(\.[0-9]+)+$'
+          current=$(sed -n 's/^    source-tag: *//p' snap/snapcraft.yaml)
+          latest=$(git ls-remote --tags --refs https://github.com/alienarena/alienarena.git \
+                   | sed -n 's|.*refs/tags/||p' | grep -E "$release" | sort -V | tail -n 1)
+          echo "This repository builds $current; upstream's newest release is ${latest:-unknown}."
+          if [ -n "$FORCED" ]; then
+            [[ "$FORCED" =~ $release ]] || { echo "::error::Not an Alien Arena release tag: $FORCED"; exit 1; }
+            tag="$FORCED"
+          elif [ -z "$latest" ]; then
+            echo "::error::Couldn't read upstream's release tags."
+            exit 1
+          elif [ "$(printf '%s\n' "$current" "$latest" | sort -V | tail -n 1)" = "$current" ]; then
+            echo "::notice::$current is upstream's newest release, so there's nothing to do."
+            exit 0
+          else
+            tag="$latest"
+          fi
+          publish=false
+          if [ "$WANT_PUBLISH" = true ]; then
+            if [ "$CAN_PUBLISH" = true ]; then
+              publish=true
+            elif [ "$SCHEDULED" = true ]; then
+              # Building every day with nowhere to publish would only use up runners.
+              echo "::notice::Alien Arena $tag is out, but PUBLISH_SNAP isn't set, so it isn't built."
+              exit 0
+            else
+              echo "::warning::PUBLISH_SNAP isn't set, so $tag is built but not published."
+            fi
+          fi
+          echo "Building $tag (publish: $publish)."
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ needs.check.outputs.tag }}
+    needs: check
+    if: needs.check.outputs.tag != ''
+    uses: ./.github/workflows/snap.yml
+    with:
+      tag: ${{ needs.check.outputs.tag }}
+      release: ${{ needs.check.outputs.publish == 'true' && 'candidate,edge' || '' }}
+    secrets: inherit
+
+  # A push made with GITHUB_TOKEN starts no other workflow, so this doesn't
+  # build the same release again on main.
+  bump:
+    name: Move main to ${{ needs.check.outputs.tag }}
+    needs: [check, build]
+    if: needs.check.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - env:
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          current=$(sed -n 's/^    source-tag: *//p' snap/snapcraft.yaml)
+          if [ "$(printf '%s\n' "$current" "$TAG" | sort -V | tail -n 1)" = "$current" ]; then
+            echo "main builds $current already, which isn't older than $TAG."
+            exit 0
+          fi
+          sed -i "s/^    source-tag: .*/    source-tag: $TAG/" snap/snapcraft.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Update Alien Arena to $TAG"
+          git push origin HEAD:main
